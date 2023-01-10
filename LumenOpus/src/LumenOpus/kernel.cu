@@ -9,87 +9,103 @@
 
 __global__ void LumenOpus::render_pixel(
     uint32_t* data, 
+	Spheres** spheres,
+	Camera camera,
     float4* d_rayOrigin, 
     float angleYAxis,
     int32_t max_x, 
     int32_t max_y)
 {
-    uint32_t x = threadIdx.x + blockIdx.x * blockDim.x;
-    uint32_t y = threadIdx.y + blockIdx.y * blockDim.y;
-
-    // Return if unnecessary thread
-    if (x >= max_x || y >= max_y) return;
-
-    constexpr float piRatio = 3.14159265358979323846f / 180.0f;
-    int32_t index = max_x * y + x;
-    float imageAspectRatio = float(max_x) / float(max_y);
-    float4 rayOrigin = *d_rayOrigin;
-
-    // Rotation data
-    float radians = piRatio * angleYAxis;
-    float cosine = cosf(radians);
-    float sine = sinf(radians);
-
-    // Fun time
-    float4 spherePosition = make_float4(0.0f, 0.0f, -1.0f, 1.0f);
-    float4 lightPosition = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
-
-    float sphereRadius = 0.5f;
-    float3 sphereColor = make_float3(1.0f, 0.0f, 1.0f);
-    uint32_t backColor = to_rgba(0.0f, 0.0f, 0.0f, 1.0f);
-    float closestT;
-
-    float4 rayDirection = make_float4(
-		(2.0f * float(x) / float(max_x) - 1.0f) * imageAspectRatio,
-        2.0f * float(y) / float(max_y) - 1.0f,
-        -1.0f,
-        0.0f
-    );
-
-    // Apply rotation
-    rayDirection = make_float4(
-        rayDirection.x * cosine + rayDirection.z * sine,
-        rayDirection.y,
-        rayDirection.z * cosine - rayDirection.x * sine,
-        rayDirection.w
-    );
-
-
-    bool isHit = is_sphere_hit(
-        rayOrigin,
-        rayDirection,
-        spherePosition,
-        sphereRadius,
-        closestT);
-
-    if (!isHit || closestT < 0)
+    for (uint32_t index = threadIdx.x + blockDim.x * blockIdx.x; index < max_x * max_y; index += blockDim.x * gridDim.x)
     {
-        data[index] = backColor;
-        return;
+        uint32_t x = index % max_x;
+        uint32_t y = index / max_x;
+
+        constexpr float piRatio = 3.14159265358979323846f / 180.0f;
+        float imageAspectRatio = float(max_x) / float(max_y);
+
+        Spheres* hittable = *spheres;
+
+        float4 rayOrigin = make_float4(camera.Position);
+        rayOrigin.w = 1.0f;
+
+        // Rotation data
+        float radians = piRatio * angleYAxis;
+        float cosine = cosf(radians);
+        float sine = sinf(radians);
+
+        // Fun time
+        float4 spherePosition = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+        float4 lightPosition = make_float4(0.0f, 10.0f, 0.0f, 1.0f);
+
+        float sphereRadius = 0.5f;
+        float3 sphereColor = make_float3(1.0f, 0.0f, 1.0f);
+        uint32_t backColor = to_rgba(0.0f, 0.0f, 0.0f, 1.0f);
+        float closestT;
+
+        float4 rayDirection = make_float4(
+            (2.0f * float(x) / float(max_x) - 1.0f) * imageAspectRatio,
+            2.0f * float(y) / float(max_y) - 1.0f,
+            -1.0f,
+            0.0f
+        );
+
+        rayDirection = camera.GetDirection(float(x), float(y));
+
+        bool isHit;
+        // Apply rotation
+        //rayDirection = make_float4(
+        //    rayDirection.x * cosine + rayDirection.z * sine,
+        //    rayDirection.y,
+        //    rayDirection.z * cosine - rayDirection.x * sine,
+        //    rayDirection.w
+        //);
+
+
+        Ray ray(rayOrigin, rayDirection);
+        HitRecord rec;
+        isHit = HitSpheres(hittable, &ray, 0.00f, INFINITY, &rec);
+        closestT = rec.t;
+
+        if (!isHit || closestT < 0)
+        {
+            data[index] = backColor;
+            continue;
+        }
+
+     //   float4 mat = make_float4(
+     //       0.1f, //KA
+     //       1.0f, //KD
+     //       1.0f, //KS
+     //       32.0f //Shininess
+     //   );
+     //   float4 lightColor = make_float4(1.0f);
+     //   float4 objectColor = make_float4(1.0f, 0.0f, 0.0f, 1.0f);
+        //float4 result = PhongModel(
+     //       mat,
+     //       rayOrigin,
+     //       spherePosition,
+     //       lightPosition,
+     //       lightColor,
+     //       hitPoint,
+     //       objectColor
+     //   );
+
+     //   data[index] = to_rgba(result);
+
+        //float4 result = 0.5f * (rec.normal + make_float4(1.0f));
+        //float4 result = make_float4(sphereColor, 1.0f);
+
+        //float4 hitPoint = ray.at(closestT);
+        float4 rcHitPoint = ray.at(rec.t);
+        float4 normal = normalize(rcHitPoint - spherePosition);
+
+        float4 lightDir = normalize(make_float4(-1.0, -1.0f, -1.0f, 0.0f));
+        float d = fmaxf(0.0f, dot(rec.normal, -lightDir));
+
+        data[index] = to_rgba(d * sphereColor);
     }
-
-    float4 hitPoint = rayOrigin + (closestT * rayDirection);
-    hitPoint.w = 1.0f;
-    
-    float4 mat = make_float4(
-        0.1f, //KA
-        1.0f, //KD
-        1.0f, //KS
-        32.0f //Shininess
-    );
-    float4 lightColor = make_float4(1.0f);
-    float4 objectColor = make_float4(1.0f, 0.0f, 0.0f, 1.0f);
-	float4 result = PhongModel(
-        mat,
-        rayOrigin,
-        spherePosition,
-        lightPosition,
-        lightColor,
-        hitPoint,
-        objectColor
-    );
-
-    data[index] = to_rgba(result);
+    //data[index] = to_rgba(hitPoint);
 }
 
 __host__ __device__ LumenOpus::SphereHit LumenOpus::is_sphere_hit(const float3& rayOrigin, const float3& spherePosition, const float& sphereRadius)
@@ -112,15 +128,15 @@ __host__ __device__ bool LumenOpus::is_sphere_hit(
     // r - radius
     // t - hit distance 
     float a = dot(rayDirection, rayDirection);
-    float b = 2.0f * dot(origin, rayDirection);
+    float b = 2 * dot(origin, rayDirection);
     float c = dot(origin, origin) - sphereRadius * sphereRadius;
 
-    float delta = b * b - 4.0f * a * c;
+	float delta = b * b - 4.0f * a * c;
 
     // return background color if no hit
-    if (delta < 0) return false;
+    if (delta < 0.0f) return false;
 
-	closestT = (-b - sqrtf(delta)) / (2.0f * a);
+    closestT = (-b - sqrtf(delta)) / (2.0f * a);
     return true;
 }
 

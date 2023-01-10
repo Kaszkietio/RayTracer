@@ -1,6 +1,8 @@
 #pragma once
 #include "cuda_runtime.h"
 #include <cstdint>
+#include "hittable/sphere.h"
+#include "camera.h"
 
 int main2();
 
@@ -8,6 +10,8 @@ namespace LumenOpus
 {
 	__global__ void render_pixel(
 		uint32_t* data,
+		Spheres** spheres,
+		Camera camera,
 		float4* d_rayOrigin,
 		float angleYAxis,
 		int32_t max_x,

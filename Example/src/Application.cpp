@@ -7,6 +7,7 @@
 #include "LumenOpus/init.h"
 
 #include <iostream>
+#include <iomanip>
 #include <random>
 
 Input::KeyState Application::Keys[Input::KEYS_COUNT]{ (Input::KeyState)0 };
@@ -47,6 +48,8 @@ int Application::Run()
 	double curTime = glfwGetTime();
 	double nextTime;
 
+    std::cout << std::fixed << std::setprecision(4) << std::endl;
+
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(m_window.ptr))
     {
@@ -56,7 +59,8 @@ int Application::Run()
 
         nextTime = glfwGetTime();
 #if 1
-        Log(std::to_string((nextTime - curTime) * 100).c_str());
+        //Log(std::to_string((nextTime - curTime) * 100).c_str());
+        std::cout << 1 / (nextTime - curTime) << " FPS\n";
 #endif
         UpdateCamera(nextTime - curTime);
         curTime = nextTime;
@@ -270,12 +274,12 @@ void Application::UpdateCamera(float ts)
     // W
     Input::KeyState state = Application::Keys[(int32_t)Input::Keys::W];
     if ((int32_t)state) // state == Input::KeyState::Pressed
-        dz -= ts;
+        dz += ts;
 
     // S
     state = Application::Keys[(int32_t)Input::Keys::S];
     if ((int32_t)state) // state == Input::KeyState::Pressed
-        dz += ts;
+        dz -= ts;
 
     // A
     state = Application::Keys[(int32_t)Input::Keys::A];
@@ -307,6 +311,6 @@ void Application::UpdateCamera(float ts)
     if ((int32_t)state) // state == Input::KeyState::Pressed
         rot -= ts;
 
-    //m_renderer.MoveCamera(-dz, dy, dx, rot);
-    m_renderer.MoveCamera(dx, dy, dz);
+    m_renderer.MoveCamera(dz, dy, dx, rot);
+    //m_renderer.MoveCamera(dx, dy, dz);
 }

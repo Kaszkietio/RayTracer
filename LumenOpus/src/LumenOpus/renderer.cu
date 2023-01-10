@@ -6,21 +6,67 @@
 #include "helper_math.h"
 
 #include <iostream>
+#include <random>
 
 namespace LumenOpus
 {
-	Renderer::Renderer() : Renderer(0, 0)
+	Renderer::Renderer() : Renderer(0, 0, 
+#ifdef NDEBUG
+		//10000
+		//5000
+		2500
+		//1000
+		//50
+		//20
+#else
+		//50
+		20
+		//10
+		//5
+		//1
+#endif
+	)
 	{}
 
-	Renderer::Renderer(int32_t fbWidth, int32_t fbHeight)
+	Renderer::Renderer(int32_t fbWidth, int32_t fbHeight, uint64_t spheresCount)
+		: h_Spheres(spheresCount)
+		, m_camera(fbWidth, fbHeight)
 	{
+		// Choose gpu in case of multi-gpu setup
+		LumenOpus::on_setup();
+
 		AllocateCamera();
-		UpdateCamera(0.0f, 0.0f, 0.0f);
+		UpdateCamera(0.0f, 0.0f, 1.0f);
 
 		AllocateFramebuffer(fbWidth, fbHeight);
+		
+		std::random_device dev;
+		std::mt19937 rng(dev());
+		std::uniform_int_distribution<std::mt19937::result_type> dist(0, INT_MAX);
+		std::uniform_real_distribution<> distf(0, 1000000);
 
-		// Choose gpu in case of multi-gpu setup
-		on_setup();
+		//h_Spheres.Add(0.0f, 0.0f, -1.0f, 0.5f);
+		//h_Spheres.Add(0.0f, -10.0f, -1.0f, 9.0f);
+
+		for (int i = 0; i < spheresCount; i++)
+		{
+			float x = distf(rng) / 1000000.0f;
+			x = lerp(-100.0f, 100.0f, x);
+
+			float y = distf(rng) / 1000000.0f;
+			y = lerp(-100.0f, 100.0f, y);
+
+			float z = distf(rng) / 1000000.0f;
+			z = lerp(-110.0f, -10.0f, z);
+
+			float r = distf(rng) / 1000000.0f;
+			r = lerp(2.5f, 7.5f, r);
+
+			h_Spheres.Add(x, y, z, r);
+		}
+
+		// Allocate spheres at gpu
+		d_Spheres = Spheres::MakeItDevice(h_Spheres);
 	}
 
 	Renderer::~Renderer()
@@ -30,9 +76,12 @@ namespace LumenOpus
 		// Free framebuffer
 		FreeFramebuffer();
 
+		h_Spheres.FreeData();
+		Spheres::DeleteDevice(d_Spheres);
+
 		// cudaDeviceReset must be called before exiting in order for profiling and
 		// tracing tools such as Nsight and Visual Profiler to show complete traces.
-		on_exit();
+		LumenOpus::on_exit();
 	}
 
 	void Renderer::OnUpdate(uint32_t* data, int32_t width, int32_t height)
@@ -43,17 +92,22 @@ namespace LumenOpus
 
 		dim3 blocks(width / tx + 1, height / ty + 1);
 		dim3 threads(tx, ty);
+		int gridSize = 0, blockSize = 0;
+		checkCudaErrors(cudaOccupancyMaxPotentialBlockSize(&gridSize, &blockSize, render_pixel, 0));
 
 		// Copy current camera position
 		checkCudaErrors(cudaMemcpy(
 			d_cameraPosition, 
 			&h_cameraPosition, 
-			sizeof(float4), 
+			sizeof(float3), 
 			cudaMemcpyHostToDevice));
 
 		// Render buffer
-		render_pixel<<<blocks, threads>>> (
+		//render_pixel<<<blocks, threads>>> (
+		render_pixel<<<gridSize, blockSize>>> (
 			md_fb, 
+			d_Spheres,
+			m_camera,
 			(float4*)d_cameraPosition, 
 			h_angleYAxis,
 			m_fbWidth, 
@@ -71,66 +125,54 @@ namespace LumenOpus
 	{
 		FreeFramebuffer();
 		AllocateFramebuffer(width, height);
+		m_camera.OnResize(width, height);
 	}
 
 	void Renderer::UpdateCamera(const float& x, const float& y, const float& z)
 	{
-		float4* tmp = (float4*)h_cameraPosition;
-		tmp->x = x;
-		tmp->y = y;
-		tmp->z = z;
-		tmp->w = 1.0f;
+		h_cameraPosition.x = x;
+		h_cameraPosition.y = y;
+		h_cameraPosition.z = z;
 	}
 
 	void Renderer::MoveCamera(const float& dx, const float& dy, const float& dz)
 	{
-		float4* tmp = (float4*)&(h_cameraPosition[0]);
-		tmp->x += dx;
-		tmp->y += dy;
-		tmp->z += dz;
+		h_cameraPosition.x += dx;
+		h_cameraPosition.y += dy;
+		h_cameraPosition.z += dz;
 	}
 
 	void Renderer::MoveCamera(const float& forward, const float& up, const float& right, const float& yaw)
 	{
-		throw;
-		//constexpr float4 upDirection{ 0.0f, 1.0f, 0.0f, 0.0f };
-		//constexpr float3 upDirection3{ 0.0f, 1.0f, 0.0f };
-		//constexpr float piRatio = 3.14159265358979323846f / 180.0f;
+		m_camera.OnUpdate(forward, up, right, yaw);
+		return;
 
-		//float4* forward4 = (float4*)h_fordwardDirection;
-		//float4* right4 = (float4*)h_rightDirection;
-		//float4* pos = (float4*)h_cameraPosition;
 
-		//*pos += *forward4 * forward * VELOCITY;
-		//*pos += *right4 * right * VELOCITY;
-		//*pos += upDirection * up * VELOCITY;
+		constexpr float3 upDirection{ 0.0f, 1.0f, 0.0f };
+		constexpr float piRatio = 3.14159265358979323846f / 180.0f;
 
-		//if (yaw == 0.0f) return;
+		h_rightDirection = cross(h_forwardDirection, upDirection);
 
-		//h_angleYAxis += yaw * VELOCITY_ANGLE;
-		//if (h_angleYAxis >= 360.0f) h_angleYAxis -= 360.0f;
-		//else if (h_angleYAxis < 0.0f) h_angleYAxis += 360.0f;
+		h_cameraPosition += h_forwardDirection * forward * VELOCITY;
+		h_cameraPosition += h_rightDirection * right * VELOCITY;
+		h_cameraPosition += upDirection * up * VELOCITY;
 
-		//float radian = h_angleYAxis * piRatio;
-		//float sine = sinf(radian), cosine = cosf(radian);
-		//float newX = forward4->x * cosine + forward4->z * sine;
-		//float newZ = forward4->z * cosine - forward4->x * sine;
+		if (yaw == 0.0f) return;
 
-		//float3 tmp = normalize(make_float3(
-		//	newX,
-		//	0.0f,
-		//	newZ
-		//));
+		float newAngle = yaw * VELOCITY_ANGLE;
+		h_angleYAxis += newAngle;
+		if (h_angleYAxis >= 360.0f) h_angleYAxis -= 360.0f;
+		else if (h_angleYAxis < 0.0f) h_angleYAxis += 360.0f;
 
-		//forward4->x = tmp.x;
-		//forward4->z = tmp.z;
-		//
+		float radian = newAngle * piRatio;
+		float sine = sinf(radian), cosine = cosf(radian);
+		float newX = h_forwardDirection.x * cosine + h_forwardDirection.z * sine;
+		float newZ = h_forwardDirection.z * cosine - h_forwardDirection.x * sine;
 
-		//float3 tmpR = cross(*(float3*)forward4, upDirection3);
-		//right4->x = tmpR.x;
-		//right4->y = tmpR.y;
-		//right4->z = tmpR.z;
-		//right4->w = 0.0f;
+		float3 tmp = make_float3(newX, 0.0f, newZ);
+
+		h_forwardDirection.x = tmp.x;
+		h_forwardDirection.z = tmp.z;
 	}
 
 	void Renderer::AllocateCamera()

@@ -85,16 +85,19 @@
     <CudaCompile Include="src\LumenOpus\error.cu" />
     <CudaCompile Include="src\LumenOpus\kernel.cu" />
     <CudaCompile Include="src\LumenOpus\renderer.cu" />
+    <CudaCompile Include="src\LumenOpus\sphere.cu" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\LumenOpus\camera.h" />
+    <ClInclude Include="include\LumenOpus\enums.h" />
     <ClInclude Include="include\LumenOpus\error.h" />
+    <ClInclude Include="include\LumenOpus\hittable\hittable.h" />
+    <ClInclude Include="include\LumenOpus\hittable\sphere.h" />
     <ClInclude Include="include\LumenOpus\init.h" />
     <ClInclude Include="include\LumenOpus\kernel.h" />
+    <ClInclude Include="include\LumenOpus\ray.h" />
     <ClInclude Include="include\LumenOpus\renderer.h" />
     <ClInclude Include="include\LumenOpus\utils.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="src\LumenOpus\Source.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
