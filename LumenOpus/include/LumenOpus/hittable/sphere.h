@@ -15,7 +15,7 @@ namespace LumenOpus
 	{
 	public:
 		// If changing (adding arrays) look at CopyToDevice function
-		static const uint64_t ARRAY_COUNT = 12;
+		static constexpr uint64_t ARRAY_COUNT = 12;
 		enum class Arrays : int32_t
 		{
 			X = 0, Y, Z, RADIUS, KA, KD, KS, SHININESS, R, G, B, A

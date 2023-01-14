@@ -2,6 +2,7 @@
 #include "cuda_runtime.h"
 #include <cstdint>
 #include "hittable/sphere.h"
+#include "light.h"
 #include "camera.h"
 
 int main2();
@@ -11,6 +12,7 @@ namespace LumenOpus
 	__global__ void render_pixel(
 		uint32_t* data,
 		Spheres** spheres,
+		Lights** lightsptr,
 		Camera camera,
 		float4* d_rayOrigin,
 		float angleYAxis,

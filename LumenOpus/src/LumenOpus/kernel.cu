@@ -10,6 +10,7 @@
 __global__ void LumenOpus::render_pixel(
     uint32_t* data, 
 	Spheres** spheres,
+    Lights** lightsptr,
 	Camera camera,
     float4* d_rayOrigin, 
     float angleYAxis,
@@ -20,6 +21,7 @@ __global__ void LumenOpus::render_pixel(
 	float imageAspectRatio = float(max_x) / float(max_y);
 
 	Spheres* hittable = *spheres;
+    Lights* lights = *lightsptr;
 
 	float4 rayOrigin = make_float4(camera.Position);
 	rayOrigin.w = 1.0f;
@@ -76,12 +78,22 @@ __global__ void LumenOpus::render_pixel(
         mat = hittable->GetMat(rec.sphereId);
         objectColor = hittable->GetColor(rec.sphereId);
 
-		float4 result = PhongModel(
+		//float4 result = PhongModel(
+  //          mat,
+  //          rayOrigin,
+  //          spherePosition,
+  //          //lightPosition,
+  //          //lightColor,
+  //          lights->GetPosition(0),
+  //          lights->GetAmbient(0),
+  //          hitPoint,
+  //          objectColor
+  //      );
+        float4 result = PhongModel(
+            lights,
             mat,
             rayOrigin,
             spherePosition,
-            lightPosition,
-            lightColor,
             hitPoint,
             objectColor
         );
@@ -132,10 +144,18 @@ __host__ __device__ float4 LumenOpus::PhongModel(
     const float4& objectColor
 )
 {
+    // Attenuation coefficients
+    constexpr float AC = 1.0f;
+    constexpr float AL = 0.09f;
+    constexpr float AQ = 0.032f;
+
     float4 normal = normalize(hitPoint - spherePosition);
     float4 viewDir = normalize(rayOrigin - spherePosition);
     float4 lightDirection = normalize(lightPosition - hitPoint);
     float4 reflectDir = LumenOpus::reflect(-lightDirection, normal);
+    float4 distV = lightPosition - hitPoint;
+    float distSq = dot(distV, distV);
+    float attuation = AC + AL * sqrtf(distSq) + AQ * distSq;
 
     const float& ambientStrength = mat.x;
     const float& diffuseStrenght = mat.y;
@@ -151,7 +171,7 @@ __host__ __device__ float4 LumenOpus::PhongModel(
     spec = powf(spec, shininess);
     float4 specular = specularStrength * spec * lightColor;
 
-    float4 result = (ambient + diffuse + specular) * objectColor;
+    float4 result = (ambient + ((diffuse + specular) / attuation)) * objectColor;
 
     return clamp(result, 0.0f, 1.0f);
 }

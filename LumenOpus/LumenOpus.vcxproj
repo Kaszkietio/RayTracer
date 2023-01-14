@@ -84,6 +84,7 @@
   <ItemGroup>
     <CudaCompile Include="src\LumenOpus\error.cu" />
     <CudaCompile Include="src\LumenOpus\kernel.cu" />
+    <CudaCompile Include="src\LumenOpus\light.cu" />
     <CudaCompile Include="src\LumenOpus\renderer.cu" />
     <CudaCompile Include="src\LumenOpus\sphere.cu" />
   </ItemGroup>
@@ -100,7 +101,7 @@
     <ClInclude Include="include\LumenOpus\utils.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="include\LumenOpus\light.cpp" />
+    <ClCompile Include="include\LumenOpus\light.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

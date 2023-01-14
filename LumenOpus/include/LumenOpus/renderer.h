@@ -3,6 +3,7 @@
 
 #include "hittable/sphere.h"
 #include "camera.h"
+#include "light.h"
 
 
 namespace LumenOpus
@@ -37,11 +38,14 @@ namespace LumenOpus
 
 		Spheres h_Spheres;
 		Spheres** d_Spheres{ nullptr };
+
+		Lights h_Lights;
+		Lights** d_Lights{};
 		
 		///////////////// M E M B E R   F U N C T I O N S //////////////////////////// 
 	public:
 		Renderer();
-		Renderer(int32_t fbWidth, int32_t fbHeight, uint64_t spheresCount);
+		Renderer(int32_t fbWidth, int32_t fbHeight, uint64_t spheresCount, uint64_t lightCount);
 		~Renderer();
 
 		uint32_t* GetFramebuffer() noexcept { return md_fb; }

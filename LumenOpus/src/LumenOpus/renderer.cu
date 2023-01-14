@@ -14,8 +14,9 @@ namespace LumenOpus
 #ifdef NDEBUG
 		//10000
 		//5000
-		2500
-		//1000
+		//2500
+		1000
+		//500
 		//50
 		//20
 #else
@@ -25,11 +26,23 @@ namespace LumenOpus
 		//5
 		//1
 #endif
+		,
+#ifdef NDEBUG
+		//1
+		//1000
+		100
+		//10
+#else
+		//1
+		5
+		//20
+#endif
 	)
 	{}
 
-	Renderer::Renderer(int32_t fbWidth, int32_t fbHeight, uint64_t spheresCount)
+	Renderer::Renderer(int32_t fbWidth, int32_t fbHeight, uint64_t spheresCount, uint64_t lightCount)
 		: h_Spheres(spheresCount)
+		, h_Lights(lightCount)
 		, m_camera(fbWidth, fbHeight)
 	{
 		// Choose gpu in case of multi-gpu setup
@@ -45,24 +58,55 @@ namespace LumenOpus
 		std::uniform_int_distribution<std::mt19937::result_type> dist(0, INT_MAX);
 		std::uniform_real_distribution<> distf(0, 1000000);
 
-		//h_Spheres.Add(0.0f, 0.0f, 0.0f, 0.5f);
-		//h_Spheres.Add(-2.0f, 0.0f, 0.0f, 0.5f);
+		//h_Spheres.Add(
+		//	0.0f, 0.0f, 0.0f, 0.5f,
+		//	0.03f, 0.5f, 0.5f, 32.0f,
+		//	1.0f, 0.0f, 0.0f
+		//);
+		//h_Spheres.Add(
+		//	-5.0f, 0.0f, 0.0f, 0.5f,
+		//	0.03f, 0.5f, 0.5f, 32.0f,
+		//	1.0f, 0.0f, 0.0f
+		//);
+		//h_Spheres.Add(
+		//	-10.0f, 0.0f, 0.0f, 0.5f,
+		//	0.03f, 0.5f, 0.5f, 32.0f,
+		//	1.0f, 0.0f, 0.0f
+		//);
+
+		//float4 tmpLight = make_float4(1.0f);
+
+		//h_Lights.Add(
+		//	1.0f * tmpLight,
+		//	1.0f * tmpLight,
+		//	0.0f, 2.0f, 1.0f
+		//);
+		//h_Lights.Add(
+		//	1.0f * tmpLight,
+		//	1.0f * tmpLight,
+		//	-10.0f, 2.0f, 1.0f
+		//);
+		
 		//h_Spheres.Add(0.0f, 0.0f, -1.0f, 0.5f);
 		//h_Spheres.Add(0.0f, -10.0f, -1.0f, 9.0f);
+
+		float tmp = max(20.0f, spheresCount / 10.0f);
+		float tmp2 = -tmp;
 
 		for (int i = 0; i < spheresCount; i++)
 		{
 			float x = distf(rng) / 1000000.0f;
-			x = lerp(-200.0f, 200.0f, x);
+			x = lerp(tmp2, tmp, x);
 
 			float y = distf(rng) / 1000000.0f;
-			y = lerp(-200.0f, 200.0f, y);
+			y = lerp(tmp2, tmp, y);
 
 			float z = distf(rng) / 1000000.0f;
-			z = lerp(-200.0f, 200.0f, z);
+			z = lerp(tmp2, tmp, z);
 
 			float rad = distf(rng) / 1000000.0f;
 			rad = lerp(2.5f, 7.5f, rad);
+			//rad = lerp(0.1f, 2.0f, rad);
 
 			float ka = distf(rng) / 1000000.0f;
 
@@ -88,8 +132,43 @@ namespace LumenOpus
 				r, g, b);
 		}
 
-		// Allocate spheres at gpu
+		for (uint64_t i = 0; i < lightCount; i++)
+		{
+			float sr = distf(rng) / 1000000.0f;
+			
+			float sg = distf(rng) / 1000000.0f;
+			
+			float sb = distf(rng) / 1000000.0f;
+			
+			float sa = distf(rng) / 1000000.0f;
+
+			float dr = distf(rng) / 1000000.0f;
+			
+			float dg = distf(rng) / 1000000.0f;
+			
+			float db = distf(rng) / 1000000.0f;
+			
+			float da = distf(rng) / 1000000.0f;
+
+			float x = distf(rng) / 1000000.0f;
+			x = lerp(tmp2, tmp, x);
+
+			float y = distf(rng) / 1000000.0f;
+			y = lerp(tmp2, tmp, y);
+
+			float z = distf(rng) / 1000000.0f;
+			z = lerp(tmp2, tmp, z);
+
+			h_Lights.Add(
+				make_float4(dr, dg, db, da),
+				make_float4(sr, sg, sb, sa),
+				x, y, z
+				);
+		}
+
+		// Allocate spheres and lights at gpu
 		d_Spheres = Spheres::MakeItDevice(h_Spheres);
+		d_Lights = Lights::MakeItDevice(h_Lights);
 	}
 
 	Renderer::~Renderer()
@@ -101,6 +180,8 @@ namespace LumenOpus
 
 		h_Spheres.FreeData();
 		Spheres::DeleteDevice(d_Spheres);
+		h_Lights.FreeData();
+		Lights::DeleteDevice(d_Lights);
 
 		// cudaDeviceReset must be called before exiting in order for profiling and
 		// tracing tools such as Nsight and Visual Profiler to show complete traces.
@@ -109,12 +190,6 @@ namespace LumenOpus
 
 	void Renderer::OnUpdate(uint32_t* data, int32_t width, int32_t height)
 	{
-		// Some constants
-		constexpr int32_t tx = 8;
-		constexpr int32_t ty = 8;
-
-		dim3 blocks(width / tx + 1, height / ty + 1);
-		dim3 threads(tx, ty);
 		int gridSize = 0, blockSize = 0;
 		checkCudaErrors(cudaOccupancyMaxPotentialBlockSize(&gridSize, &blockSize, render_pixel, 0));
 
@@ -126,10 +201,10 @@ namespace LumenOpus
 			cudaMemcpyHostToDevice));
 
 		// Render buffer
-		//render_pixel<<<blocks, threads>>> (
 		render_pixel<<<gridSize, blockSize>>> (
 			md_fb, 
 			d_Spheres,
+			d_Lights,
 			m_camera,
 			(float4*)d_cameraPosition, 
 			h_angleYAxis,
