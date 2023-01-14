@@ -7,6 +7,7 @@ namespace LumenOpus
 	{
 		float4 p;
 		float4 normal;
+		uint64_t sphereId;
 		float t;
 	};
 }

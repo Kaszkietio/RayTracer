@@ -16,22 +16,59 @@ namespace LumenOpus
 		FreeData();
 	}
 
-	__host__ __device__ void Spheres::Add(float X, float Y, float Z, float Radius)
+	__host__ __device__ void Spheres::Add(
+		float x, 
+		float y, 
+		float z,
+		float radius,
+		float ka,
+		float kd,
+		float ks,
+		float shininess,
+		float r,
+		float g,
+		float b,
+		float a
+	)
 	{
 		// Casual return cause idk what happens on that gpu
 		if (ArraySize == m_maxArraySize) return;
 
 		float* ptr = &Data[ArraySize];
-		*ptr = X;
+		*ptr = x;
 		
 		ptr += m_maxArraySize;
-		*ptr = Y;
+		*ptr = y;
 
 		ptr += m_maxArraySize;
-		*ptr = Z;
+		*ptr = z;
 		
 		ptr += m_maxArraySize;
-		*ptr = Radius;
+		*ptr = radius;
+		
+		ptr += m_maxArraySize;
+		*ptr = ka;
+		
+		ptr += m_maxArraySize;
+		*ptr = kd;
+		
+		ptr += m_maxArraySize;
+		*ptr = ks;
+		
+		ptr += m_maxArraySize;
+		*ptr = shininess;
+		
+		ptr += m_maxArraySize;
+		*ptr = r;
+		
+		ptr += m_maxArraySize;
+		*ptr = g;
+		
+		ptr += m_maxArraySize;
+		*ptr = b;
+		
+		ptr += m_maxArraySize;
+		*ptr = a;
 		
 		ArraySize++;
 	}

@@ -15,10 +15,10 @@ namespace LumenOpus
 	{
 	public:
 		// If changing (adding arrays) look at CopyToDevice function
-		static const uint64_t ARRAY_COUNT = 4;
+		static const uint64_t ARRAY_COUNT = 12;
 		enum class Arrays : int32_t
 		{
-			X = 0, Y, Z, RADIUS,
+			X = 0, Y, Z, RADIUS, KA, KD, KS, SHININESS, R, G, B, A
 		};
 	private:
 		uint64_t m_dataSize{ 0 };
@@ -38,10 +38,79 @@ namespace LumenOpus
 		__host__ __device__ Spheres(uint64_t maxSize = 0);
 		__host__ __device__ ~Spheres();
 
-		__host__ __device__ void Add(float x, float y, float z, float radius);
+		__host__ __device__ void Add(
+			float x, 
+			float y, 
+			float z, 
+			float radius,
+			float ka,
+			float kd,
+			float ks,
+			float shininess,
+			float r,
+			float g,
+			float b,
+			float a = 1.0f
+		);
 		constexpr __host__ __device__ float* GetArray(Arrays a)
 		{
 			return Data + m_maxArraySize * (int32_t)a;
+		}
+
+		__host__ __device__ float4 GetPosition(int index)
+		{
+			if (index >= ArraySize) return { 0 };
+
+			float4 res{};
+			float* ptr = &(GetArray(Arrays::X)[index]);
+			res.x = *ptr;
+
+			ptr += m_maxArraySize;
+			res.y = *ptr;
+
+			ptr += m_maxArraySize;
+			res.z = *ptr;
+
+			res.w = 1.0f;
+			return res;
+		}
+
+		__host__ __device__ float4 GetColor(int index)
+		{
+			if (index >= ArraySize) return { 0 };
+
+			float4 res{};
+			float* ptr = &(GetArray(Arrays::R)[index]);
+			res.x = *ptr;
+
+			ptr += m_maxArraySize;
+			res.y = *ptr;
+
+			ptr += m_maxArraySize;
+			res.z = *ptr;
+
+			ptr += m_maxArraySize;
+			res.w = *ptr;
+			return res;
+		}
+
+		__host__ __device__ float4 GetMat(int index)
+		{
+			if (index >= ArraySize) return{ 0 };
+
+			float4 res{};
+			float* ptr = &(GetArray(Arrays::KA)[index]);
+			res.x = *ptr;
+
+			ptr += m_maxArraySize;
+			res.y = *ptr;
+
+			ptr += m_maxArraySize;
+			res.z = *ptr;
+
+			ptr += m_maxArraySize;
+			res.w = *ptr;
+			return res;
 		}
 
 		__host__ __device__ void AllocateData();
@@ -131,6 +200,7 @@ namespace LumenOpus
 			{
 				hitAnything = true;
 				curClosest = rec->t;
+				rec->sphereId = i;
 			}
 		}
 

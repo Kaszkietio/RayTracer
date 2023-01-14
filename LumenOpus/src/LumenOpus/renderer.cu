@@ -45,24 +45,47 @@ namespace LumenOpus
 		std::uniform_int_distribution<std::mt19937::result_type> dist(0, INT_MAX);
 		std::uniform_real_distribution<> distf(0, 1000000);
 
+		//h_Spheres.Add(0.0f, 0.0f, 0.0f, 0.5f);
+		//h_Spheres.Add(-2.0f, 0.0f, 0.0f, 0.5f);
 		//h_Spheres.Add(0.0f, 0.0f, -1.0f, 0.5f);
 		//h_Spheres.Add(0.0f, -10.0f, -1.0f, 9.0f);
 
 		for (int i = 0; i < spheresCount; i++)
 		{
 			float x = distf(rng) / 1000000.0f;
-			x = lerp(-100.0f, 100.0f, x);
+			x = lerp(-200.0f, 200.0f, x);
 
 			float y = distf(rng) / 1000000.0f;
-			y = lerp(-100.0f, 100.0f, y);
+			y = lerp(-200.0f, 200.0f, y);
 
 			float z = distf(rng) / 1000000.0f;
-			z = lerp(-110.0f, -10.0f, z);
+			z = lerp(-200.0f, 200.0f, z);
 
+			float rad = distf(rng) / 1000000.0f;
+			rad = lerp(2.5f, 7.5f, rad);
+
+			float ka = distf(rng) / 1000000.0f;
+
+			float kd = distf(rng) / 1000000.0f;
+			
+			float ks = distf(rng) / 1000000.0f;
+			
+			float shininess = distf(rng) / 1000000.0f;
+			shininess = lerp(1.0f, 10.0f, shininess);
+			shininess = roundf(shininess);
+			shininess = 1 << (int)shininess;
+			
 			float r = distf(rng) / 1000000.0f;
-			r = lerp(2.5f, 7.5f, r);
+			
+			float g = distf(rng) / 1000000.0f;
+			
+			float b = distf(rng) / 1000000.0f;
 
-			h_Spheres.Add(x, y, z, r);
+			h_Spheres.Add(
+				//0.0f, 0.0f, -1.0f, 0.5f,
+				x, y, z, rad,
+				ka, kd, ks, shininess,
+				r, g, b);
 		}
 
 		// Allocate spheres at gpu

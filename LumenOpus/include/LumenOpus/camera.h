@@ -14,7 +14,8 @@ namespace LumenOpus
 		static constexpr float PiRatio = 3.14159265358979323846f / 180.0f;
 
 		static constexpr float RotationSpeed = 50.0f;
-		static constexpr float Speed = 30.0f;
+		//static constexpr float Speed = 30.0f;
+		static constexpr float Speed = 10.0f;
 #ifndef NDEBUG
 	private:
 		DeviceType type{ DeviceType::CPU };
