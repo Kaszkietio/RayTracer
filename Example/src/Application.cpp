@@ -7,6 +7,7 @@
 #include "LumenOpus/init.h"
 
 #include <iostream>
+#include <iomanip>
 #include <random>
 
 Input::KeyState Application::Keys[Input::KEYS_COUNT]{ (Input::KeyState)0 };
@@ -47,6 +48,8 @@ int Application::Run()
 	double curTime = glfwGetTime();
 	double nextTime;
 
+    std::cout << std::fixed << std::setprecision(4) << std::endl;
+
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(m_window.ptr))
     {
@@ -56,7 +59,8 @@ int Application::Run()
 
         nextTime = glfwGetTime();
 #if 1
-        Log(std::to_string((nextTime - curTime) * 100).c_str());
+        //Log(std::to_string((nextTime - curTime) * 100).c_str());
+        std::cout << 1 / (nextTime - curTime) << " FPS\n";
 #endif
         UpdateCamera(nextTime - curTime);
         curTime = nextTime;
@@ -153,60 +157,15 @@ void Application::CreateTextureAndFramebuffer()
 
 void Application::FillSceneData()
 {
-    //m_renderer.Sphere.Add({ 0.0f, 0.0f, 0.0f },
-    //    0.5f,
-    //    { 1.0f, 1.0f, 1.0f, 1.0f },
-    //    { 1.0f, 1.0f, 1.0f, 1.0f },
-    //    { 1.0f, 1.0f, 1.0f, 1.0f },
-    //    { 1.0f, 1.0f, 1.0f, 1.0f });
-
-    //m_renderer.Light.Add({ 0.0f, 1.0f, -1.0f },
-    //    {-1.0f, -1.0f, -1.0f},
-    //    { 1.0f, 1.0f, 1.0f, 1.0f },
-    //    { 1.0f, 1.0f, 1.0f, 1.0f },
-    //    { 1.0f, 1.0f, 1.0f, 1.0f });
 }
 
 void Application::CalculateFrame()
 {
-    //m_renderer.OnUpdate(m_data.get(), m_window.Width, m_window.Height);
 	uint8_t* imageData = m_data.get();
     int32_t& width = m_window.Width;
     int32_t& height = m_window.Height;
-    //std::random_device dev;
-    //std::mt19937 rng(dev());
-    //std::uniform_int_distribution<std::mt19937::result_type> dist(0, INT_MAX);
-
-    //uint32_t* imageData = m_renderer.GetFramebuffer();
-    //int32_t width = m_renderer.GetWidth(), height = m_renderer.GetHeight();
-
-    // Test
-    //LumenOpus::render((uint32_t*)imageData, width, height);
-
-    //m_renderer.MoveCamera(0.001f, 0.0f, 0.0f);
 
     m_renderer.OnUpdate((uint32_t*)imageData, width, height);
-    //Render((uint32_t*)imageData, width, height);
-
-	// Update
-    //for (size_t y = 0; y < m_window.Height; y++)
-    //{
-    //    for (size_t x = 0; x < m_window.Width; x++)
-    //    {
-    //        uint32_t* curPixel = (uint32_t*)&(imageData[(y * m_window.Width + x) * 4]);
-    //        *curPixel = dist(rng);
-    //        *curPixel |= 0xff000000;
-
-    //        //if (x | y)
-    //        //	continue;
-
-    //        //Log(std::to_string(*curPixel).c_str());
-    //        //Log(std::to_string(imageData[(y * m_window.Width + x) * 4]).c_str());
-    //        //Log(std::to_string(imageData[(y * m_window.Width + x) * 4 + 1]).c_str());
-    //        //Log(std::to_string(imageData[(y * m_window.Width + x) * 4 + 2]).c_str());
-    //        //Log(std::to_string(imageData[(y * m_window.Width + x) * 4 + 3]).c_str());
-    //    }
-    //}
 }
 
 void Application::ResizeBuffers()
@@ -270,12 +229,12 @@ void Application::UpdateCamera(float ts)
     // W
     Input::KeyState state = Application::Keys[(int32_t)Input::Keys::W];
     if ((int32_t)state) // state == Input::KeyState::Pressed
-        dz -= ts;
+        dz += ts;
 
     // S
     state = Application::Keys[(int32_t)Input::Keys::S];
     if ((int32_t)state) // state == Input::KeyState::Pressed
-        dz += ts;
+        dz -= ts;
 
     // A
     state = Application::Keys[(int32_t)Input::Keys::A];
@@ -307,6 +266,5 @@ void Application::UpdateCamera(float ts)
     if ((int32_t)state) // state == Input::KeyState::Pressed
         rot -= ts;
 
-    //m_renderer.MoveCamera(-dz, dy, dx, rot);
-    m_renderer.MoveCamera(dx, dy, dz);
+    m_renderer.MoveCamera(dz, dy, dx, rot);
 }

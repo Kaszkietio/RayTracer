@@ -9,87 +9,97 @@
 
 __global__ void LumenOpus::render_pixel(
     uint32_t* data, 
+	Spheres** spheres,
+    Lights** lightsptr,
+	Camera camera,
     float4* d_rayOrigin, 
     float angleYAxis,
     int32_t max_x, 
     int32_t max_y)
 {
-    uint32_t x = threadIdx.x + blockIdx.x * blockDim.x;
-    uint32_t y = threadIdx.y + blockIdx.y * blockDim.y;
+	constexpr float piRatio = 3.14159265358979323846f / 180.0f;
+	float imageAspectRatio = float(max_x) / float(max_y);
 
-    // Return if unnecessary thread
-    if (x >= max_x || y >= max_y) return;
+	Spheres* hittable = *spheres;
+    Lights* lights = *lightsptr;
 
-    constexpr float piRatio = 3.14159265358979323846f / 180.0f;
-    int32_t index = max_x * y + x;
-    float imageAspectRatio = float(max_x) / float(max_y);
-    float4 rayOrigin = *d_rayOrigin;
+	float4 rayOrigin = make_float4(camera.Position);
+	rayOrigin.w = 1.0f;
 
-    // Rotation data
-    float radians = piRatio * angleYAxis;
-    float cosine = cosf(radians);
-    float sine = sinf(radians);
+	// Rotation data
+	float radians = piRatio * angleYAxis;
+	float cosine = cosf(radians);
+	float sine = sinf(radians);
 
-    // Fun time
-    float4 spherePosition = make_float4(0.0f, 0.0f, -1.0f, 1.0f);
-    float4 lightPosition = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+	// Fun time
+	float4 spherePosition = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
+	float4 lightPosition = make_float4(0.0f, 2.0f, 1.0f, 1.0f);
 
-    float sphereRadius = 0.5f;
-    float3 sphereColor = make_float3(1.0f, 0.0f, 1.0f);
-    uint32_t backColor = to_rgba(0.0f, 0.0f, 0.0f, 1.0f);
-    float closestT;
+	uint32_t backColor = to_rgba(0.0f, 0.0f, 0.0f, 1.0f);
+	float closestT;
 
-    float4 rayDirection = make_float4(
-		(2.0f * float(x) / float(max_x) - 1.0f) * imageAspectRatio,
-        2.0f * float(y) / float(max_y) - 1.0f,
-        -1.0f,
-        0.0f
-    );
+    uint32_t x, y;
+    float4 rayDirection;
+	bool isHit;
+	HitRecord rec;
 
-    // Apply rotation
-    rayDirection = make_float4(
-        rayDirection.x * cosine + rayDirection.z * sine,
-        rayDirection.y,
-        rayDirection.z * cosine - rayDirection.x * sine,
-        rayDirection.w
-    );
+    float4 mat{};
+	float4 objectColor{};
+    float4 hitPoint{};
+	float4 lightColor = make_float4(1.0f);
 
 
-    bool isHit = is_sphere_hit(
-        rayOrigin,
-        rayDirection,
-        spherePosition,
-        sphereRadius,
-        closestT);
-
-    if (!isHit || closestT < 0)
+    for (uint32_t index = threadIdx.x + blockDim.x * blockIdx.x; index < max_x * max_y; index += blockDim.x * gridDim.x)
     {
-        data[index] = backColor;
-        return;
+        x = index % max_x;
+        y = index / max_x;
+
+        rayDirection = make_float4(
+            (2.0f * float(x) / float(max_x) - 1.0f) * imageAspectRatio,
+            2.0f * float(y) / float(max_y) - 1.0f,
+            -1.0f,
+            0.0f
+        );
+
+        rayDirection = camera.GetDirection(float(x), float(y));
+
+        Ray ray(rayOrigin, rayDirection);
+        isHit = HitSpheres(hittable, &ray, 0.00f, INFINITY, &rec);
+        closestT = rec.t;
+
+        if (!isHit || closestT < 0)
+        {
+            data[index] = backColor;
+            continue;
+        }
+
+        hitPoint = ray.at(rec.t);
+        spherePosition = hittable->GetPosition(rec.sphereId);
+        mat = hittable->GetMat(rec.sphereId);
+        objectColor = hittable->GetColor(rec.sphereId);
+
+		//float4 result = PhongModel(
+  //          mat,
+  //          rayOrigin,
+  //          spherePosition,
+  //          //lightPosition,
+  //          //lightColor,
+  //          lights->GetPosition(0),
+  //          lights->GetAmbient(0),
+  //          hitPoint,
+  //          objectColor
+  //      );
+        float4 result = PhongModel(
+            lights,
+            mat,
+            rayOrigin,
+            spherePosition,
+            hitPoint,
+            objectColor
+        );
+
+        data[index] = to_rgba(result);
     }
-
-    float4 hitPoint = rayOrigin + (closestT * rayDirection);
-    hitPoint.w = 1.0f;
-    
-    float4 mat = make_float4(
-        0.1f, //KA
-        1.0f, //KD
-        1.0f, //KS
-        32.0f //Shininess
-    );
-    float4 lightColor = make_float4(1.0f);
-    float4 objectColor = make_float4(1.0f, 0.0f, 0.0f, 1.0f);
-	float4 result = PhongModel(
-        mat,
-        rayOrigin,
-        spherePosition,
-        lightPosition,
-        lightColor,
-        hitPoint,
-        objectColor
-    );
-
-    data[index] = to_rgba(result);
 }
 
 __host__ __device__ LumenOpus::SphereHit LumenOpus::is_sphere_hit(const float3& rayOrigin, const float3& spherePosition, const float& sphereRadius)
@@ -112,15 +122,15 @@ __host__ __device__ bool LumenOpus::is_sphere_hit(
     // r - radius
     // t - hit distance 
     float a = dot(rayDirection, rayDirection);
-    float b = 2.0f * dot(origin, rayDirection);
+    float b = 2 * dot(origin, rayDirection);
     float c = dot(origin, origin) - sphereRadius * sphereRadius;
 
-    float delta = b * b - 4.0f * a * c;
+	float delta = b * b - 4.0f * a * c;
 
     // return background color if no hit
-    if (delta < 0) return false;
+    if (delta < 0.0f) return false;
 
-	closestT = (-b - sqrtf(delta)) / (2.0f * a);
+    closestT = (-b - sqrtf(delta)) / (2.0f * a);
     return true;
 }
 
@@ -134,16 +144,25 @@ __host__ __device__ float4 LumenOpus::PhongModel(
     const float4& objectColor
 )
 {
+    // Attenuation coefficients
+    constexpr float AC = 1.0f;
+    constexpr float AL = 0.09f;
+    constexpr float AQ = 0.032f;
+
     float4 normal = normalize(hitPoint - spherePosition);
     float4 viewDir = normalize(rayOrigin - spherePosition);
     float4 lightDirection = normalize(lightPosition - hitPoint);
     float4 reflectDir = LumenOpus::reflect(-lightDirection, normal);
+    float4 distV = lightPosition - hitPoint;
+    float distSq = dot(distV, distV);
+    float attuation = AC + AL * sqrtf(distSq) + AQ * distSq;
 
     const float& ambientStrength = mat.x;
     const float& diffuseStrenght = mat.y;
     const float& specularStrength = mat.z;
     const float& shininess = mat.w;
 
+    // TODO: Uzaleznic diffuse i specular od odleglosci
     float4 ambient = ambientStrength * lightColor;
     float4 diffuse = max((diffuseStrenght * dot(normal, lightDirection)), 0.0f) * lightColor;
 
@@ -152,7 +171,7 @@ __host__ __device__ float4 LumenOpus::PhongModel(
     spec = powf(spec, shininess);
     float4 specular = specularStrength * spec * lightColor;
 
-    float4 result = (ambient + diffuse + specular) * objectColor;
+    float4 result = (ambient + ((diffuse + specular) / attuation)) * objectColor;
 
     return clamp(result, 0.0f, 1.0f);
 }

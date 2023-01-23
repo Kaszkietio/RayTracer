@@ -1,17 +1,23 @@
 #pragma once
 #include <cstdint>
 
+#include "hittable/sphere.h"
+#include "camera.h"
+#include "light.h"
+
 
 namespace LumenOpus
 {
+
 	class Renderer
 	{
 		///////////////////////// F I E L D S //////////////////////////// 
 	public:
 		static const size_t CHANNEL_COUNT = 4;
 		static const size_t FLOAT4_SIZE = 4 * sizeof(float);
+		static const size_t SPHERES_SIZE = sizeof(Spheres);
 
-		const float VELOCITY{ 0.750f };
+		const float VELOCITY{ 10.0f };
 		const float VELOCITY_ANGLE{ 100.0f };
 	private:
 		uint32_t* md_fb{ nullptr };
@@ -20,14 +26,26 @@ namespace LumenOpus
 
 		void* d_cameraPosition;
 		float h_angleYAxis{ 0.0f };
-		uint8_t h_cameraPosition[FLOAT4_SIZE];
-		uint8_t h_fordwardDirection[FLOAT4_SIZE];
-		uint8_t h_rightDirection[FLOAT4_SIZE];
+		//uint8_t h_cameraPosition[FLOAT4_SIZE];
+		//uint8_t h_fordwardDirection[FLOAT4_SIZE];
+		//uint8_t h_rightDirection[FLOAT4_SIZE];
+
+		float3 h_cameraPosition;
+		float3 h_forwardDirection{ 0.0f,0.0f,-1.0f };
+		float3 h_rightDirection;
+
+		Camera m_camera;
+
+		Spheres h_Spheres;
+		Spheres** d_Spheres{ nullptr };
+
+		Lights h_Lights;
+		Lights** d_Lights{};
 		
 		///////////////// M E M B E R   F U N C T I O N S //////////////////////////// 
 	public:
 		Renderer();
-		Renderer(int32_t fbWidth, int32_t fbHeight);
+		Renderer(int32_t fbWidth, int32_t fbHeight, uint64_t spheresCount, uint64_t lightCount);
 		~Renderer();
 
 		uint32_t* GetFramebuffer() noexcept { return md_fb; }
